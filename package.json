@@ -1,0 +1,23 @@
+{
+  "name": "mindnote-ai",
+  "version": "1.0.0",
+  "description": "Chrome extension that automatically generates markdown notes from documentation websites",
+  "main": "background/background.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build-icons": "node images/create_icons.js"
+  },
+  "keywords": [
+    "chrome-extension",
+    "markdown",
+    "documentation",
+    "notes",
+    "ai",
+    "llm"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "devDependencies": {
+    "canvas": "^2.11.2"
+  }
+} 

@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>mindnote.ai Options</title>
+  <link rel="stylesheet" href="../css/options.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>mindnote.ai Settings</h1>
+      <p>Configure API keys for note generation</p>
+    </header>
+    
+    <div class="settings-panel">
+      <div class="api-section">
+        <h2>API Configuration</h2>
+        <p class="description">Please provide at least one API key to enable note generation.</p>
+        
+        <div class="form-group">
+          <label for="openai-api-key">OpenAI API Key</label>
+          <div class="input-group">
+            <input type="password" id="openai-api-key" placeholder="sk-...">
+            <button class="toggle-visibility" data-target="openai-api-key">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16">
+                <path d="M12 4C4 4 1 12 1 12C1 12 4 20 12 20C20 20 23 12 23 12C23 12 20 4 12 4Z" fill="none" stroke="currentColor" stroke-width="2"/>
+                <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/>
+              </svg>
+            </button>
+          </div>
+          <p class="model-info">Uses GPT-4 for high-quality notes (Recommended)</p>
+        </div>
+        
+        <div class="form-group">
+          <label for="anthropic-api-key">Anthropic API Key</label>
+          <div class="input-group">
+            <input type="password" id="anthropic-api-key" placeholder="sk-ant-...">
+            <button class="toggle-visibility" data-target="anthropic-api-key">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16">
+                <path d="M12 4C4 4 1 12 1 12C1 12 4 20 12 20C20 20 23 12 23 12C23 12 20 4 12 4Z" fill="none" stroke="currentColor" stroke-width="2"/>
+                <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/>
+              </svg>
+            </button>
+          </div>
+          <p class="model-info">Uses Claude 3 Opus for high-quality notes (Alternative)</p>
+        </div>
+      </div>
+      
+      <div class="preferences-section">
+        <h2>Preferences</h2>
+        
+        <div class="form-group">
+          <label for="preferred-api">Preferred API</label>
+          <select id="preferred-api">
+            <option value="openai">OpenAI (GPT-4)</option>
+            <option value="anthropic">Anthropic (Claude)</option>
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label for="auto-capture">Auto-capture on page load</label>
+          <div class="toggle-switch">
+            <input type="checkbox" id="auto-capture" checked>
+            <span class="toggle-slider"></span>
+          </div>
+        </div>
+      </div>
+      
+      <div class="buttons-container">
+        <button id="save-settings" class="btn primary">Save Settings</button>
+        <button id="back-to-popup" class="btn">Back to Popup</button>
+      </div>
+    </div>
+    
+    <div id="status-message" class="status-message"></div>
+  </div>
+  
+  <script src="../js/options.js"></script>
+</body>
+</html> 
