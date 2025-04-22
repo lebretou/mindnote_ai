@@ -57,6 +57,7 @@ CAPTURED WEBSITE CONTENT:
 ${capturedWebsites.map((site, index) => `
 WEBSITE ${index + 1}: ${site.title || 'Untitled'}
 URL: ${site.url}
+${site.videoTitle ? `\nVIDEO TITLE: ${site.videoTitle}\n` : ''}
 
 HEADINGS:
 ${site.headings.map(h => `${'#'.repeat(h.level)} ${h.text}`).join('\n')}
@@ -69,10 +70,9 @@ ${site.paragraphs.slice(0, 10).join('\n\n')}
 
 LIST ITEMS:
 ${site.listItems.map(item => '- ' + item).join('\n')}
+${site.transcript ? `\nVIDEO TRANSCRIPT:\n${site.transcript}\n` : ''}
 `).join('\n\n-----------------\n\n')}
 
-Generate comprehensive technical documentation notes in markdown format based on the above content.
-Organize the content logically, with proper headings, sections, and code blocks.
 Remove any redundant information and focus on the technical details.
 Ensure all code blocks are properly formatted within markdown code fences.
 `;
@@ -98,7 +98,7 @@ Ensure all code blocks are properly formatted within markdown code fences.
           }
         ],
         temperature: 0.3,
-        max_tokens: 12000
+        max_tokens: 32000
       })
     });
     
@@ -116,7 +116,7 @@ Ensure all code blocks are properly formatted within markdown code fences.
   }
 };
 
-// Alternative function to generate markdown notes using Anthropic API
+// Function to generate markdown notes using Anthropic API
 const generateMarkdownNotesWithAnthropic = async (capturedWebsites) => {
   // Get API key from storage
   const storage = await chrome.storage.local.get(['anthropicApiKey']);
@@ -137,6 +137,7 @@ CAPTURED WEBSITE CONTENT:
 ${capturedWebsites.map((site, index) => `
 WEBSITE ${index + 1}: ${site.title || 'Untitled'}
 URL: ${site.url}
+${site.videoTitle ? `\nVIDEO TITLE: ${site.videoTitle}\n` : ''}
 
 HEADINGS:
 ${site.headings.map(h => `${'#'.repeat(h.level)} ${h.text}`).join('\n')}
@@ -149,10 +150,9 @@ ${site.paragraphs.slice(0, 10).join('\n\n')}
 
 LIST ITEMS:
 ${site.listItems.map(item => '- ' + item).join('\n')}
+${site.transcript ? `\nVIDEO TRANSCRIPT:\n${site.transcript}\n` : ''}
 `).join('\n\n-----------------\n\n')}
 
-Generate comprehensive technical documentation notes in markdown format based on the above content.
-Organize the content logically, with proper headings, sections, and code blocks.
 Remove any redundant information and focus on the technical details.
 Ensure all code blocks are properly formatted within markdown code fences.
 `;
@@ -175,7 +175,7 @@ Ensure all code blocks are properly formatted within markdown code fences.
           }
         ],
         temperature: 0.3,
-        max_tokens: 12000
+        max_tokens: 32000
       })
     });
     
@@ -190,6 +190,74 @@ Ensure all code blocks are properly formatted within markdown code fences.
   } catch (error) {
     console.error('Error calling Anthropic API:', error);
     return `ERROR: ${error.message}`;
+  }
+};
+
+// Function to extract transcript and title from YouTube video (runs in YouTube tab context via injection)
+async function extractTranscriptFromPage() {
+  const videoUrl = window.location.href;
+  const apiBaseUrl = 'https://transcript.andreszenteno.com'; // Using the API from the provided code
+  const payload = { url: videoUrl };
+
+  try {
+    const response = await fetch(`${apiBaseUrl}/simple-transcript`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      console.error('Transcript API error:', response.status, await response.text());
+      throw new Error(`Error fetching transcript (${response.status})`);
+    }
+
+    const data = await response.json();
+    // Ensure title and transcript exist, provide defaults if not
+    const title = data.title || document.title || 'Untitled Video'; // Fallback title
+    const transcript = data.transcript || 'Transcript not available';
+    return { title: title, transcript: transcript };
+    
+  } catch (error) {
+    console.error('Error in extractTranscriptFromPage:', error);
+    // Return structured error/defaults
+    return { 
+      title: document.title || 'Untitled Video', // Still provide a title
+      transcript: `Error fetching transcript: ${error.message}` 
+    };
+  }
+}
+
+// Function to fetch YouTube transcript using script injection
+const fetchYouTubeTranscript = async (videoId, tabId) => {
+  if (!videoId || !tabId) return null;
+
+  console.log(`Attempting to inject script into tab ${tabId} for video ID: ${videoId}`);
+
+  try {
+    const injectionResults = await chrome.scripting.executeScript({
+      target: { tabId: tabId },
+      func: extractTranscriptFromPage, // Inject the function defined above
+    });
+
+    // Check results
+    if (chrome.runtime.lastError) {
+      console.error('Script injection error:', chrome.runtime.lastError.message);
+      return { title: 'Error', transcript: `Injection failed: ${chrome.runtime.lastError.message}` };
+    }
+    
+    if (injectionResults && injectionResults.length > 0 && injectionResults[0].result) {
+      const result = injectionResults[0].result;
+      console.log(`Successfully extracted transcript data for video ID: ${videoId}`);
+      // Return the structured result {title, transcript}
+      return result; 
+    } else {
+      console.warn(`No result or unexpected result from script injection for video ID ${videoId}. Results:`, injectionResults);
+      return { title: 'Error', transcript: 'Failed to get transcript from page.' };
+    }
+
+  } catch (error) {
+    console.error(`Error injecting or executing script for video ID ${videoId} in tab ${tabId}:`, error);
+    return { title: 'Error', transcript: `Execution failed: ${error.message}` }; // Indicate failure
   }
 };
 
@@ -219,29 +287,80 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   
   // Content extracted from a page
   else if (request.action === 'contentExtracted') {
-    // Handle extracted content
-    capturedWebsites = request.capturedWebsites;
-    chrome.storage.local.set({ capturedWebsites: capturedWebsites });
-    
-    // Capture screenshot
-    if (sender.tab && isRecording) {
-      captureScreenshot(sender.tab.id).then(dataUrl => {
-        // Find the website entry and add the screenshot
-        const website = capturedWebsites.find(site => site.url === sender.tab.url);
-        if (website) {
-          website.screenshot = dataUrl;
-          chrome.storage.local.set({ capturedWebsites: capturedWebsites });
-        }
-      });
+    // **Important**: contentExtracted now sends only the *single* page data
+    // Let's adjust the logic to handle one page at a time
+    const newData = request.pageData; // Assuming content script sends { action: 'contentExtracted', pageData: {...} }
+
+    if (!newData || !newData.url) {
+      console.warn('Received contentExtracted message with invalid data', request);
+      sendResponse({ success: false, error: 'Invalid page data' });
+      return false; // Don't send async response
     }
-    
-    // Broadcast update to popup
-    chrome.runtime.sendMessage({ 
-      action: 'websiteCaptured', 
-      capturedWebsites: capturedWebsites 
-    });
-    
-    sendResponse({ success: true });
+
+    const processPage = async () => {
+      try {
+        // Check if this page is already captured
+        const existingIndex = capturedWebsites.findIndex(site => site.url === newData.url);
+
+        // Fetch transcript if it's a YouTube video
+        if (newData.videoId && sender.tab) {
+          const transcriptData = await fetchYouTubeTranscript(newData.videoId, sender.tab.id);
+          if (transcriptData) {
+            newData.transcript = transcriptData.transcript; // Store the text transcript
+            newData.videoTitle = transcriptData.title;     // Store the video title
+          } else {
+            // Handle cases where transcript fetching failed gracefully
+            newData.transcript = 'Transcript could not be fetched.';
+            newData.videoTitle = 'Unknown Video';
+          }
+        } else if (newData.videoId && !sender.tab) {
+            console.warn('Cannot fetch transcript: sender.tab is missing.');
+            newData.transcript = 'Transcript fetch skipped (no tab info).';
+            newData.videoTitle = 'Unknown Video';
+        }
+
+        // Capture screenshot if recording
+        if (sender.tab && isRecording) {
+           try {
+             newData.screenshot = await captureScreenshot(sender.tab.id);
+           } catch (screenshotError) {
+             console.error('Failed to capture screenshot:', screenshotError);
+             newData.screenshot = null; // Indicate screenshot failure
+           }
+        } else {
+          newData.screenshot = null;
+        }
+
+        // Update or add the website data
+        if (existingIndex !== -1) {
+          // Update existing entry, preserving existing screenshot if new one failed
+           const existingScreenshot = capturedWebsites[existingIndex].screenshot;
+           capturedWebsites[existingIndex] = { 
+             ...newData, 
+             screenshot: newData.screenshot === null ? existingScreenshot : newData.screenshot 
+           };
+          console.log('Updated captured website:', newData.url);
+        } else {
+          capturedWebsites.push(newData);
+          console.log('Added new captured website:', newData.url);
+        }
+
+        // Save and broadcast update
+        await chrome.storage.local.set({ capturedWebsites: capturedWebsites });
+        chrome.runtime.sendMessage({ 
+          action: 'websiteCaptured', 
+          capturedWebsites: capturedWebsites 
+        });
+        sendResponse({ success: true });
+
+      } catch (error) {
+        console.error("Error processing captured content for URL:", newData.url, error);
+        sendResponse({ success: false, error: error.message });
+      }
+    };
+
+    processPage(); // Execute the async processing
+    return true; // Indicate async response
   }
   
   // Website removed from the list
@@ -270,8 +389,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     
     // Generate notes
     generateMarkdownNotes(websites).then(notes => {
-      // Store the generated notes
-      chrome.storage.local.set({ generatedNotes: notes });
+      // Store the generated notes AND the sources used to generate them
+      chrome.storage.local.set({
+        generatedNotes: notes,
+        recordedSources: websites // Save the sources as well
+      });
       
       // Broadcast to popup
       chrome.runtime.sendMessage({ 
@@ -286,8 +408,26 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     sendResponse({ success: true });
   }
   
-  // Return true to indicate that the response will be sent asynchronously
-  return true;
+  // Clear the current session
+  else if (request.action === 'clearSession') {
+    console.log("Clearing session data...");
+    capturedWebsites = []; // Clear in-memory array
+    // Clear data from storage
+    chrome.storage.local.remove(['capturedWebsites', 'generatedNotes', 'recordedSources'], () => {
+      if (chrome.runtime.lastError) {
+        console.error("Error clearing storage:", chrome.runtime.lastError.message);
+        sendResponse({ success: false, error: chrome.runtime.lastError.message });
+      } else {
+        console.log("Storage cleared successfully.");
+        // Optionally broadcast this clearing if needed by other components
+        // broadcastToContentScripts({ action: 'sessionCleared' }); 
+        sendResponse({ success: true });
+      }
+    });
+    return true; // Indicate async response for storage removal
+  }
+
+  return true; // Keep for other async handlers
 });
 
 // Listen for tab updates to capture content when recording

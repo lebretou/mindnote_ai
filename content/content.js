@@ -187,6 +187,14 @@ const extractContent = () => {
   if (mainContent && isVisible(mainContent)) {
     mainContentText = mainContent.textContent.trim();
   }
+
+  // --- START YOUTUBE VIDEO ID EXTRACTION ---
+  let videoId = null;
+  const url = new URL(window.location.href);
+  if (url.hostname.includes('youtube.com') && url.pathname === '/watch' && url.searchParams.has('v')) {
+    videoId = url.searchParams.get('v');
+  }
+  // --- END YOUTUBE VIDEO ID EXTRACTION ---
   
   return {
     url: window.location.href,
@@ -195,7 +203,8 @@ const extractContent = () => {
     codeBlocks: codeBlocks,
     paragraphs: paragraphs,
     listItems: listItems,
-    mainContent: mainContentText
+    mainContent: mainContentText,
+    videoId: videoId // Add videoId to the returned object
   };
 };
 
@@ -205,29 +214,43 @@ const capturePage = () => {
   
   const extractedContent = extractContent();
   
-  // Check if this URL is already captured
-  const existingIndex = capturedWebsites.findIndex(site => site.url === extractedContent.url);
+  // Check if this URL is already captured *locally* in the content script
+  // This helps prevent duplicate messages but the background script is the source of truth
+  const alreadySentIndex = capturedWebsites.findIndex(site => site.url === extractedContent.url);
+  let shouldSend = true;
   
-  if (existingIndex !== -1) {
-    // Update existing entry
-    capturedWebsites[existingIndex] = extractedContent;
-    showToast('Page content updated');
+  if (alreadySentIndex !== -1) {
+    // Simple check: only resend if video ID status changes (e.g., navigating to a video)
+    // A more robust check might compare more fields, but keep it simple for now.
+    if (capturedWebsites[alreadySentIndex].videoId === extractedContent.videoId) {
+        // If it looks the same, maybe don't resend immediately. Background handles updates anyway.
+        // Optionally add a timer here to send updates periodically instead of on every minor change.
+        // console.log('Content looks similar, skipping immediate send.');
+        // shouldSend = false; // Uncomment to reduce message frequency
+    }
+    // Update local list for future checks
+    capturedWebsites[alreadySentIndex] = extractedContent; 
   } else {
-    // Add new entry
+    // Add to local list
     capturedWebsites.push(extractedContent);
-    showToast('Page content captured');
   }
   
-  // Update sidebar if visible
+  // Always update sidebar if visible
   if (sidebarVisible) {
-    updateWebsitesList();
+    updateWebsitesList(); // This list now reflects the content script's *local* view
   }
-  
-  // Notify background script
-  chrome.runtime.sendMessage({ 
-    action: 'contentExtracted', 
-    capturedWebsites: capturedWebsites 
-  });
+
+  if (shouldSend) {
+      // Notify background script with ONLY the current page's data
+      console.log('Sending extracted content for:', extractedContent.url);
+      chrome.runtime.sendMessage({ 
+        action: 'contentExtracted', 
+        pageData: extractedContent // Send single page data object
+      }).catch(err => {
+        console.error("Error sending contentExtracted message:", err);
+      });
+      showToast('Page content captured/updated');
+  }
 };
 
 // Request note generation
@@ -275,7 +298,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 // Initialize: check if recording is active
 chrome.storage.local.get(['isRecording', 'capturedWebsites'], function(result) {
   isRecording = result.isRecording || false;
-  capturedWebsites = result.capturedWebsites || [];
+  // Initialize the local content script list from storage - background is the source of truth
+  capturedWebsites = result.capturedWebsites || []; 
+  
+  // Update sidebar if it was already open potentially?
+  if (sidebarVisible) {
+    updateWebsitesList();
+  }
   
   // If we're recording, capture this page after a short delay
   if (isRecording) {

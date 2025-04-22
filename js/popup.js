@@ -2,12 +2,14 @@ document.addEventListener('DOMContentLoaded', function() {
   const startBtn = document.getElementById('startBtn');
   const stopBtn = document.getElementById('stopBtn');
   const exportBtn = document.getElementById('exportBtn');
+  const viewNotesBtn = document.getElementById('viewNotesBtn');
   const statusIndicator = document.getElementById('statusIndicator');
   const statusText = document.getElementById('statusText');
   const pageCount = document.getElementById('pageCount');
   const websitesList = document.getElementById('websitesList');
   const notesPreview = document.getElementById('notesPreview');
   const openOptionsBtn = document.getElementById('openOptions');
+  const clearSessionBtn = document.getElementById('clearSessionBtn');
   
   let isRecording = false;
   let capturedWebsites = [];
@@ -31,7 +33,9 @@ document.addEventListener('DOMContentLoaded', function() {
       generatedNotes = result.generatedNotes;
       updateNotesPreview();
       exportBtn.disabled = false;
+      viewNotesBtn.disabled = false;
     }
+    updateClearButtonState();
   });
   
   // Start recording button
@@ -75,11 +79,29 @@ document.addEventListener('DOMContentLoaded', function() {
     URL.revokeObjectURL(url);
   });
   
+  // View notes button
+  viewNotesBtn.addEventListener('click', function() {
+    if (generatedNotes) {
+      chrome.tabs.create({ url: chrome.runtime.getURL('notes_view.html') });
+    } else {
+      // Optional: Alert user if no notes exist, though button should be disabled
+      alert("No notes generated yet."); 
+    }
+  });
+  
   // Open options page
   openOptionsBtn.addEventListener('click', function() {
     chrome.runtime.openOptionsPage ? 
       chrome.runtime.openOptionsPage() : 
       window.open(chrome.runtime.getURL('popup/options.html'));
+  });
+  
+  // Clear session button
+  clearSessionBtn.addEventListener('click', function() {
+    // Confirm with the user before clearing
+    if (confirm("Are you sure you want to clear the current session? This will remove all captured websites and generated notes.")) {
+      clearSessionData();
+    }
   });
   
   // Listen for updates from background script
@@ -89,11 +111,14 @@ document.addEventListener('DOMContentLoaded', function() {
       updateWebsitesList();
       pageCount.textContent = capturedWebsites.length;
       chrome.storage.local.set({ capturedWebsites: capturedWebsites });
+      updateClearButtonState();
     } else if (request.action === 'notesGenerated') {
       generatedNotes = request.notes;
       updateNotesPreview();
       exportBtn.disabled = false;
+      viewNotesBtn.disabled = false;
       chrome.storage.local.set({ generatedNotes: generatedNotes });
+      updateClearButtonState();
     }
   });
   
@@ -155,11 +180,14 @@ document.addEventListener('DOMContentLoaded', function() {
       action: 'websiteRemoved', 
       capturedWebsites: capturedWebsites 
     });
+    updateClearButtonState();
   }
   
   function updateNotesPreview() {
     if (!generatedNotes) {
       notesPreview.innerHTML = '<div class="empty-message">Notes will appear here after generation</div>';
+      exportBtn.disabled = true;
+      viewNotesBtn.disabled = true;
       return;
     }
     
@@ -175,6 +203,8 @@ document.addEventListener('DOMContentLoaded', function() {
       .replace(/\n\n/g, '<br><br>');
     
     notesPreview.innerHTML = html;
+    exportBtn.disabled = false;
+    viewNotesBtn.disabled = false;
   }
   
   function generateNotes() {
@@ -186,5 +216,48 @@ document.addEventListener('DOMContentLoaded', function() {
       action: 'generateNotes',
       capturedWebsites: capturedWebsites
     });
+  }
+  
+  // Function to clear session data
+  function clearSessionData() {
+    console.log("Clearing session in popup...");
+    // Clear local state
+    capturedWebsites = [];
+    generatedNotes = '';
+
+    // Update UI
+    updateWebsitesList();
+    updateNotesPreview();
+    pageCount.textContent = '0';
+
+    // Reset button states (assuming stopRecording() handles most of this)
+    if (isRecording) {
+      // If recording, stop it first (optional, depends on desired UX)
+      // For now, just reset UI assuming recording is already stopped or shouldn't be running
+    }
+    startBtn.disabled = false;
+    stopBtn.disabled = true;
+    exportBtn.disabled = true;
+    viewNotesBtn.disabled = true;
+    clearSessionBtn.disabled = capturedWebsites.length === 0 && !generatedNotes; // Disable if already empty
+
+    // Clear storage via background script
+    chrome.runtime.sendMessage({ action: 'clearSession' }, function(response) {
+      if (response && response.success) {
+        console.log("Background session cleared successfully.");
+      } else {
+        console.error("Error clearing background session:", response?.error);
+        // Handle error (e.g., show an alert to the user)
+        alert("Failed to clear session completely. Please try again.");
+      }
+    });
+
+    // Update the disabled state of the clear button immediately
+    clearSessionBtn.disabled = true;
+  }
+
+  // Update clear button state initially and whenever data changes
+  function updateClearButtonState() {
+    clearSessionBtn.disabled = capturedWebsites.length === 0 && !generatedNotes;
   }
 }); 
