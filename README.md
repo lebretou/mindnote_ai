@@ -6,8 +6,11 @@ A Chrome extension that automatically generates markdown notes from documentatio
 
 - Take screenshots of documentation websites
 - Extract relevant content using DOM analysis
-- Generate concise, well-structured markdown notes using LLM AI
+- Generate concise, well-structured markdown notes using LLM AI (OpenAI GPT-4o or Anthropic Claude)
 - Track visited websites and manage them in a sidebar
+- Interactive exploration roadmap showing your learning journey
+- Generate quizzes based on the created notes to test your understanding
+- Support for YouTube videos with transcript extraction
 - Export notes as markdown files
 
 ## Installation
@@ -26,13 +29,15 @@ A Chrome extension that automatically generates markdown notes from documentatio
 4. Browse through the documentation pages you want to include in your notes
 5. Click "Stop & Generate" when finished
 6. Review the generated notes and click "Export" to save as markdown
+7. Use the "View Notes" button to see your notes with the visual roadmap of your exploration
+8. Click "Start Quiz" to test your knowledge on the material
 
 ## Configuration
 
 You'll need to provide your own API key:
 
 1. Click the "Settings" link in the extension popup
-2. Enter your OpenAI API key (for GPT-4) or Anthropic API key (for Claude)
+2. Enter your OpenAI API key (for GPT-4o) or Anthropic API key (for Claude Opus)
 3. Select your preferred API provider
 4. Click "Save Settings"
 
@@ -48,8 +53,17 @@ You'll need to provide your own API key:
 ├── popup/                  # Extension popup UI
 ├── js/                     # JavaScript modules
 ├── css/                    # Stylesheets
-└── images/                 # Icons and images
+├── images/                 # Icons and images
+├── notes_view.html         # Notes viewing interface
+└── quiz.html               # Quiz functionality
 ```
+
+### Key Features Implementation
+
+- **Content Extraction**: Captures key elements from web pages including headings, paragraphs, code blocks, and list items
+- **YouTube Support**: Extracts video transcripts for better notes on video content
+- **Exploration Roadmap**: Visual flowchart showing the path through documentation using Mermaid.js
+- **Quiz Generation**: AI-generated questions based on your notes to test understanding
 
 ### Building for Production
 
