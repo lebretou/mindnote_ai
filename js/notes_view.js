@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const sourceListUl = document.getElementById('source-list');
     const downloadButton = document.getElementById('download-button');
     const roadmapFlowchartDiv = document.getElementById('roadmap-flowchart'); // Get flowchart container
+    const startQuizButton = document.getElementById('start-quiz-button'); // Get the quiz button
 
     let generatedMarkdown = ''; // To store the markdown for download
 
@@ -54,24 +55,48 @@ document.addEventListener('DOMContentLoaded', () => {
         // --- Render Exploration Roadmap Flowchart ---
         if (sources.length > 0) {
             try {
+                // Remove duplicates by tracking URLs we've seen
+                const uniqueSources = [];
+                const seenUrls = new Map(); // Map to track URLs and their node IDs
+                
+                // First pass to identify unique sources
+                sources.forEach((source, index) => {
+                    if (source && source.url) {
+                        if (!seenUrls.has(source.url)) {
+                            seenUrls.set(source.url, `node${uniqueSources.length}`);
+                            uniqueSources.push(source);
+                        }
+                    }
+                });
+                
                 // Generate Mermaid definition
                 let mermaidDefinition = 'graph LR;\n'; // Left-to-Right graph
-                sources.forEach((source, index) => {
-                    // Sanitize title for Mermaid ID and label
-                    const nodeId = `node${index}`; // Simple unique ID
-                    // Escape characters that might break Mermaid syntax within the label
+                
+                // Add all unique nodes first
+                uniqueSources.forEach((source, index) => {
+                    const nodeId = `node${index}`;
                     const nodeLabel = source.title ? source.title.replace(/[\"`]/g, '') : `Source ${index + 1}`;
                     const nodeUrl = source.url;
                     
                     // Define the node with title and link
                     mermaidDefinition += `    ${nodeId}["${nodeLabel}"];\n`;
                     // Add click interaction to open the URL
-                    mermaidDefinition += `    click ${nodeId} "${nodeUrl}" "_blank";\n`; 
-
-                    // Add edge from previous node
-                    if (index > 0) {
-                        const prevNodeId = `node${index - 1}`;
-                        mermaidDefinition += `    ${prevNodeId} --> ${nodeId};\n`;
+                    mermaidDefinition += `    click ${nodeId} "${nodeUrl}" "_blank";\n`;
+                });
+                
+                // Now add edges, handling only connections between different nodes
+                let lastNodeId = null;
+                sources.forEach((source, index) => {
+                    if (source && source.url) {
+                        const currentNodeId = seenUrls.get(source.url);
+                        
+                        if (lastNodeId && lastNodeId !== currentNodeId) {
+                            // Connect different nodes
+                            mermaidDefinition += `    ${lastNodeId} --> ${currentNodeId};\n`;
+                        }
+                        // Self-references for duplicates (loops) have been removed
+                        
+                        lastNodeId = currentNodeId;
                     }
                 });
 
@@ -92,11 +117,17 @@ document.addEventListener('DOMContentLoaded', () => {
         // --- End Flowchart Rendering ---
 
 
-        // --- Populate Source List (Existing Logic - could be enhanced or removed later) ---
+        // --- Populate Source List - Remove Duplicates ---
         sourceListUl.innerHTML = ''; // Clear existing list
         if (sources.length > 0) {
+            // Use a Set to track URLs we've already added
+            const addedUrls = new Set();
+            
             sources.forEach((source, index) => {
-                if (source && source.url) {
+                if (source && source.url && !addedUrls.has(source.url)) {
+                    // Only add if we haven't seen this URL yet
+                    addedUrls.add(source.url);
+                    
                     const li = document.createElement('li');
                     li.dataset.sourceId = source.url; 
                     li.title = source.url; 
@@ -122,10 +153,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     li.appendChild(urlSpan);
                     
                     sourceListUl.appendChild(li);
-                } else {
-                    console.warn("Source item missing URL:", source);
                 }
             });
+            
+            if (addedUrls.size === 0) {
+                const li = document.createElement('li');
+                li.textContent = 'No valid sources recorded.';
+                sourceListUl.appendChild(li);
+            }
         } else {
             const li = document.createElement('li');
             li.textContent = 'No sources recorded.';
@@ -150,6 +185,26 @@ document.addEventListener('DOMContentLoaded', () => {
             URL.revokeObjectURL(url); 
         });
         // --- End Download Button ---
+
+        // --- Start Quiz Button ---
+        startQuizButton.addEventListener('click', () => {
+            if (!generatedMarkdown) {
+                alert('No notes available to generate a quiz from.');
+                return;
+            }
+            // Store the markdown content in local storage for the quiz page
+            chrome.storage.local.set({ notesForQuiz: generatedMarkdown }, () => {
+                if (chrome.runtime.lastError) {
+                    console.error("Error saving notes for quiz:", chrome.runtime.lastError);
+                    alert('Could not prepare data for the quiz. Please try again.');
+                } else {
+                    console.log("Notes saved for quiz. Navigating...");
+                    // Navigate to the quiz page
+                    window.location.href = 'quiz.html';
+                }
+            });
+        });
+        // --- End Start Quiz Button ---
 
         // TODO: Remove old hover/line drawing TODO if flowchart replaces it
         // 5. TODO: Implement hover effect and line drawing 

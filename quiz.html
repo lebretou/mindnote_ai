@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz Time!</title>
+    <link rel="stylesheet" href="css/quiz.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Quiz based on Notes</h1>
+        
+        <div class="progress-container">
+            <div id="progress-bar" class="progress-bar"></div>
+            <span id="progress-text">0/0</span>
+        </div>
+
+        <div id="flashcard" class="flashcard">
+            <div id="question-area" class="question-area">
+                <!-- Question will be loaded here -->
+                Loading question...
+            </div>
+            <div id="answer-area" class="answer-area hidden">
+                <!-- Answer will be loaded here -->
+            </div>
+            <div id="explanation-area" class="explanation-area hidden">
+                <h3>Explanation</h3>
+                <div>
+                    <!-- Explanation will be loaded here -->
+                </div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button id="back-to-notes">Back to Notes</button>
+            <button id="show-answer-button">Show Answer</button>
+            <button id="next-question-button" class="hidden">Next Question</button>
+            <button id="generate-more-button" class="hidden">Generate More Questions</button>
+        </div>
+    </div>
+
+    <script src="js/quiz.js"></script>
+</body>
+</html> 

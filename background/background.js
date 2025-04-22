@@ -98,7 +98,7 @@ Ensure all code blocks are properly formatted within markdown code fences.
           }
         ],
         temperature: 0.3,
-        max_tokens: 32000
+        max_tokens: 16384
       })
     });
     
@@ -175,7 +175,7 @@ Ensure all code blocks are properly formatted within markdown code fences.
           }
         ],
         temperature: 0.3,
-        max_tokens: 32000
+        max_tokens: 16384
       })
     });
     
@@ -260,6 +260,176 @@ const fetchYouTubeTranscript = async (videoId, tabId) => {
     return { title: 'Error', transcript: `Execution failed: ${error.message}` }; // Indicate failure
   }
 };
+
+// Function to generate quiz questions and answers from notes
+const generateQuizQuestions = async (notesContent, questionCount = 5) => {
+  // First try to get OpenAI key, fall back to Anthropic
+  const storage = await chrome.storage.local.get(['openAIApiKey', 'anthropicApiKey']);
+  let apiKey = storage.openAIApiKey;
+  let isOpenAI = true;
+  
+  if (!apiKey) {
+    console.log('OpenAI API key not found, trying Anthropic API...');
+    apiKey = storage.anthropicApiKey;
+    isOpenAI = false;
+  }
+  
+  if (!apiKey) {
+    console.error('No API keys found for quiz generation');
+    return { error: 'No API keys configured. Please set an API key in the extension options.' };
+  }
+  
+  // Prepare the prompt
+  const prompt = `
+You are an expert educator. Based on the following notes, create ${questionCount} quiz questions in a flashcard format.
+For each question:
+1. Write a clear, specific question that tests understanding of an important concept from the notes
+2. Provide a concise but complete answer
+3. Include a brief explanation of why the answer is correct and how it relates to the material
+
+Format your response as a JSON array with objects containing question, answer, and explanation fields.
+
+NOTES CONTENT:
+${notesContent}
+
+Your response should be valid JSON in this exact format without any markdown formatting (no \`\`\` tags):
+[
+  {
+    "question": "What is...",
+    "answer": "The answer is...",
+    "explanation": "This is because..."
+  },
+  ...
+]
+
+IMPORTANT: Return ONLY the JSON array with no surrounding text, code block markers, or other formatting.
+Make the questions varied and representative of the most important concepts in the notes.
+`;
+
+  try {
+    let response;
+    
+    if (isOpenAI) {
+      // Call OpenAI API
+      response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are an expert educator creating quiz questions to help users learn.'
+            },
+            {
+              role: 'user',
+              content: prompt
+            }
+          ],
+          temperature: 0.3,
+          max_tokens: 2048
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (data.error) {
+        console.error('OpenAI API error:', data.error);
+        return { error: data.error.message };
+      }
+
+      try {
+        // Extract the JSON part from the response
+        const jsonContent = data.choices[0].message.content;
+        // Clean the content to remove markdown formatting
+        const cleanedJson = cleanJsonResponse(jsonContent);
+        // Parse the JSON
+        const quizData = JSON.parse(cleanedJson);
+        return { quiz: quizData };
+      } catch (parseError) {
+        console.error('Error parsing quiz JSON from OpenAI:', parseError);
+        console.log('Raw content received:', data.choices[0].message.content);
+        return { error: 'Failed to parse quiz data from API response' };
+      }
+    } else {
+      // Call Anthropic API
+      response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify({
+          model: 'claude-3-opus-20240229',
+          messages: [
+            {
+              role: 'user',
+              content: prompt
+            }
+          ],
+          temperature: 0.3,
+          max_tokens: 2048
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (data.error) {
+        console.error('Anthropic API error:', data.error);
+        return { error: data.error.message };
+      }
+      
+      try {
+        // Extract the response content and parse the JSON part
+        const jsonContent = data.content[0].text;
+        // Clean the content to remove markdown formatting
+        const cleanedJson = cleanJsonResponse(jsonContent);
+        // Parse the JSON response
+        const quizData = JSON.parse(cleanedJson);
+        return { quiz: quizData };
+      } catch (parseError) {
+        console.error('Error parsing quiz JSON from Anthropic:', parseError);
+        console.log('Raw content received:', data.content[0].text);
+        return { error: 'Failed to parse quiz data from API response' };
+      }
+    }
+  } catch (error) {
+    console.error(`Error calling ${isOpenAI ? 'OpenAI' : 'Anthropic'} API:`, error);
+    return { error: error.message };
+  }
+};
+
+// Helper function to clean JSON response from LLMs
+function cleanJsonResponse(response) {
+  // Remove markdown code block syntax if present
+  const jsonRegex = /```(?:json)?\s*(\[[\s\S]*?\])\s*```/;
+  const match = response.match(jsonRegex);
+  
+  if (match && match[1]) {
+    console.log('Found JSON in markdown block, extracting...');
+    return match[1];
+  }
+  
+  // If no markdown block found, check if it starts with [ and ends with ]
+  if (response.trim().startsWith('[') && response.trim().endsWith(']')) {
+    console.log('JSON appears to be clean already');
+    return response;
+  }
+  
+  // Last resort - try to find anything that looks like a JSON array
+  const lastResortMatch = response.match(/\[\s*\{[\s\S]*\}\s*\]/);
+  if (lastResortMatch) {
+    console.log('Extracting JSON array using last resort method');
+    return lastResortMatch[0];
+  }
+  
+  console.log('Could not extract JSON from response, returning as-is');
+  return response;
+}
 
 // Handle messages from content scripts and popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -425,6 +595,29 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       }
     });
     return true; // Indicate async response for storage removal
+  }
+
+  // Generate quiz questions
+  else if (request.type === 'GENERATE_QUIZ') {
+    console.log('Received quiz generation request');
+    if (!request.content) {
+      console.error('No content provided for quiz generation');
+      sendResponse({ error: 'No content provided for quiz generation' });
+      return false;
+    }
+
+    // Generate quiz questions
+    generateQuizQuestions(request.content, request.count || 5)
+      .then(result => {
+        console.log('Quiz generation completed:', result);
+        sendResponse(result);
+      })
+      .catch(error => {
+        console.error('Error generating quiz:', error);
+        sendResponse({ error: error.message });
+      });
+    
+    return true; // Indicate we will send an asynchronous response
   }
 
   return true; // Keep for other async handlers

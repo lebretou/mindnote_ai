@@ -223,10 +223,9 @@ const capturePage = () => {
     // Simple check: only resend if video ID status changes (e.g., navigating to a video)
     // A more robust check might compare more fields, but keep it simple for now.
     if (capturedWebsites[alreadySentIndex].videoId === extractedContent.videoId) {
-        // If it looks the same, maybe don't resend immediately. Background handles updates anyway.
-        // Optionally add a timer here to send updates periodically instead of on every minor change.
-        // console.log('Content looks similar, skipping immediate send.');
-        // shouldSend = false; // Uncomment to reduce message frequency
+        // If content looks the same, don't resend to prevent duplicates
+        console.log('Content looks similar, skipping send to prevent duplicates.');
+        shouldSend = false; // Prevent sending duplicate content
     }
     // Update local list for future checks
     capturedWebsites[alreadySentIndex] = extractedContent; 
