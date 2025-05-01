@@ -1,77 +1,121 @@
 # mindnote.ai
 
-A Chrome extension that automatically generates markdown notes from documentation websites.
+Chrome extension that automatically generates markdown notes and quizzes from documentation websites and YouTube videos using LLMs.
 
 ## Features
 
-- Take screenshots of documentation websites
-- Extract relevant content using DOM analysis
-- Generate concise, well-structured markdown notes using LLM AI (OpenAI GPT-4o or Anthropic Claude)
-- Track visited websites and manage them in a sidebar
-- Interactive exploration roadmap showing your learning journey
-- Generate quizzes based on the created notes to test your understanding
-- Support for YouTube videos with transcript extraction
-- Export notes as markdown files
+- Browse and record multiple pages in a session via an in-page sidebar UI  
+- Capture page screenshots automatically  
+- Extract headings, paragraphs, code blocks, and list items via DOM analysis  
+- Support YouTube transcripts by injecting a content-extraction script  
+- Generate concise, well-structured markdown notes using OpenAI GPT-4o or Anthropic Claude  
+- Interactive exploration roadmap rendered with Mermaid.js, linking captured sources  
+- Generate quiz questions, answers, and explanations based on your notes  
+- Export notes as `.md` files with one-click download  
+- Manage API keys and extension settings via the options page
 
 ## Installation
 
-1. Clone this repository
-2. Open Chrome and navigate to `chrome://extensions/`
-3. Enable "Developer mode" in the top-right corner
-4. Click "Load unpacked" and select the repository folder
-5. The mindnote.ai extension should now be installed and visible in your extension toolbar
+1. Clone this repository  
+2. Open Chrome and navigate to `chrome://extensions/`  
+3. Enable **Developer mode** in the top-right corner  
+4. Click **Load unpacked** and select the repository folder  
+5. Click the mindnote.ai icon in the toolbar to open the popup
 
 ## Usage
 
-1. Navigate to the documentation website you want to capture
-2. Click the mindnote.ai extension icon in your toolbar
-3. Click "Start Recording" to begin capturing websites
-4. Browse through the documentation pages you want to include in your notes
-5. Click "Stop & Generate" when finished
-6. Review the generated notes and click "Export" to save as markdown
-7. Use the "View Notes" button to see your notes with the visual roadmap of your exploration
-8. Click "Start Quiz" to test your knowledge on the material
+1. Click **Start Recording** in the popup to begin capturing pages  
+2. Browse documentation or YouTube pages; captured sites appear in the sidebar  
+3. In the popup, click **Stop & Generate** to summarize captured content  
+4. Click **View Notes** to open the notes view and see rendered markdown and roadmap  
+5. Use **Download** in the notes view to save as markdown  
+6. Click **Start Quiz** in the popup or notes view to generate and take quizzes
 
 ## Configuration
 
-You'll need to provide your own API key:
+1. In the popup, click **Settings** or open the **Options** page  
+2. Enter your OpenAI API key (GPT-4o) or Anthropic API key (Claude)  
+3. Select your preferred provider and click **Save**
 
-1. Click the "Settings" link in the extension popup
-2. Enter your OpenAI API key (for GPT-4o) or Anthropic API key (for Claude Opus)
-3. Select your preferred API provider
-4. Click "Save Settings"
+## Architecture Overview
+
+1. **manifest.json**  
+   - Permissions: `activeTab`, `scripting`, `storage`, `tabs`  
+   - Host permissions: `<all_urls>`, `*://*.youtube.com/*`  
+   - Declares background service worker, content scripts, popup, and options page  
+2. **Background Service Worker** (`background/background.js`)  
+   - Manages recording state and captured site list in `chrome.storage.local`  
+   - Handles messages: `startRecording`, `stopRecording`, `generateNotes`, `clearSession`, `GENERATE_QUIZ`  
+   - Captures screenshots and injects transcript-extraction on YouTube via `chrome.scripting.executeScript`  
+   - Calls OpenAI and Anthropic APIs for note summarization and quiz generation  
+   - Stores `generatedNotes` and `recordedSources`, broadcasts updates to UI  
+3. **Content Script** (`content/content.js` + `css/content.css`)  
+   - Injects a sidebar UI into every page for recording controls  
+   - Extracts page metadata: URL, title, headings, paragraphs, code blocks, list items  
+   - Detects YouTube video IDs and includes transcripts  
+4. **Popup UI** (`popup/popup.html`, `popup/popup.js`, `css/popup.css`)  
+   - Start/Stop Recording, Generate Notes, View Notes, Start Quiz controls  
+   - Link to the Options page (`popup/options.html`, `popup/options.js`, `css/options.css`)  
+5. **Notes View** (`notes_view.html`, `js/notes_view.js`, `css/notes_view.css`)  
+   - Retrieves and renders markdown via `marked.js`  
+   - Builds exploration flowchart with `mermaid.min.js`  
+   - Displays clickable source thumbnails and download button  
+6. **Quiz View** (`quiz.html`, `js/quiz.js`, `css/quiz.css`)  
+   - Retrieves notes for quiz and sends `GENERATE_QUIZ` to background  
+   - Displays questions, answers, explanations, and progress bar  
+7. **Assets & Libraries**  
+   - `images/` contains extension icons  
+   - `js/marked.min.js`, `js/mermaid.min.js` for markdown and diagrams
+
+## Project Structure
+
+```
+.  
+├── manifest.json
+├── package.json
+├── README.md
+├── background/
+│   └── background.js
+├── content/
+│   └── content.js
+├── popup/
+│   ├── popup.html
+│   ├── popup.js
+│   ├── options.html
+│   └── options.js
+├── css/
+│   ├── content.css
+│   ├── popup.css
+│   ├── options.css
+│   ├── notes_view.css
+│   └── quiz.css
+├── js/
+│   ├── marked.min.js
+│   ├── mermaid.min.js
+│   ├── notes_view.js
+│   └── quiz.js
+├── notes_view.html
+├── quiz.html
+└── images/
+    ├── icon16.png
+    ├── icon48.png
+    └── icon128.png
+```
 
 ## Development
 
-### Project Structure
+- Install dependencies (if any) with `npm install`  
+- Regenerate icons with `npm run build-icons`  
+- Load as an unpacked extension for testing  
+- Use `pre-commit` hooks if configured to lint and format
 
-```
-.
-├── manifest.json           # Extension configuration
-├── background/             # Background service worker
-├── content/                # Content scripts for page interaction
-├── popup/                  # Extension popup UI
-├── js/                     # JavaScript modules
-├── css/                    # Stylesheets
-├── images/                 # Icons and images
-├── notes_view.html         # Notes viewing interface
-└── quiz.html               # Quiz functionality
-```
+## License
 
-### Key Features Implementation
+MIT
 
-- **Content Extraction**: Captures key elements from web pages including headings, paragraphs, code blocks, and list items
-- **YouTube Support**: Extracts video transcripts for better notes on video content
-- **Exploration Roadmap**: Visual flowchart showing the path through documentation using Mermaid.js
-- **Quiz Generation**: AI-generated questions based on your notes to test understanding
+## Credits
 
-### Building for Production
-
-For production use, you may want to:
-
-1. Minify JavaScript and CSS files
-2. Optimize images
-3. Package the extension as a .crx file or .zip for Chrome Web Store submission
+Created by Your Name
 
 ## License
 
