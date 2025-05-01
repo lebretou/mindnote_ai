@@ -1,6 +1,7 @@
 # mindnote.ai
 
 Chrome extension that automatically generates markdown notes and quizzes from documentation websites and YouTube videos using LLMs.
+![Screenshot 2025-05-01 at 5 54 25 PM](https://github.com/user-attachments/assets/98496d8a-6da4-4458-ba18-e6cca2b47ee8)
 
 ## Features
 
