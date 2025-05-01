@@ -102,13 +102,3 @@ Chrome extension that automatically generates markdown notes and quizzes from do
     └── icon128.png
 ```
 
-## Development
-
-- Install dependencies (if any) with `npm install`  
-- Regenerate icons with `npm run build-icons`  
-- Load as an unpacked extension for testing  
-- Use `pre-commit` hooks if configured to lint and format
-
-## License
-
-MIT
