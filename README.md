@@ -112,15 +112,3 @@ Chrome extension that automatically generates markdown notes and quizzes from do
 ## License
 
 MIT
-
-## Credits
-
-Created by Your Name
-
-## License
-
-MIT
-
-## Credits
-
-Created by [Your Name]
