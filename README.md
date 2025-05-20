@@ -40,35 +40,6 @@ Chrome extension that automatically generates markdown notes and quizzes from do
 2. Enter your OpenAI API key (GPT-4o) or Anthropic API key (Claude)  
 3. Select your preferred provider and click **Save**
 
-## Architecture Overview
-
-1. **manifest.json**  
-   - Permissions: `activeTab`, `scripting`, `storage`, `tabs`  
-   - Host permissions: `<all_urls>`, `*://*.youtube.com/*`  
-   - Declares background service worker, content scripts, popup, and options page  
-2. **Background Service Worker** (`background/background.js`)  
-   - Manages recording state and captured site list in `chrome.storage.local`  
-   - Handles messages: `startRecording`, `stopRecording`, `generateNotes`, `clearSession`, `GENERATE_QUIZ`  
-   - Captures screenshots and injects transcript-extraction on YouTube via `chrome.scripting.executeScript`  
-   - Calls OpenAI and Anthropic APIs for note summarization and quiz generation  
-   - Stores `generatedNotes` and `recordedSources`, broadcasts updates to UI  
-3. **Content Script** (`content/content.js` + `css/content.css`)  
-   - Injects a sidebar UI into every page for recording controls  
-   - Extracts page metadata: URL, title, headings, paragraphs, code blocks, list items  
-   - Detects YouTube video IDs and includes transcripts  
-4. **Popup UI** (`popup/popup.html`, `popup/popup.js`, `css/popup.css`)  
-   - Start/Stop Recording, Generate Notes, View Notes, Start Quiz controls  
-   - Link to the Options page (`popup/options.html`, `popup/options.js`, `css/options.css`)  
-5. **Notes View** (`notes_view.html`, `js/notes_view.js`, `css/notes_view.css`)  
-   - Retrieves and renders markdown via `marked.js`  
-   - Builds exploration flowchart with `mermaid.min.js`  
-   - Displays clickable source thumbnails and download button  
-6. **Quiz View** (`quiz.html`, `js/quiz.js`, `css/quiz.css`)  
-   - Retrieves notes for quiz and sends `GENERATE_QUIZ` to background  
-   - Displays questions, answers, explanations, and progress bar  
-7. **Assets & Libraries**  
-   - `images/` contains extension icons  
-   - `js/marked.min.js`, `js/mermaid.min.js` for markdown and diagrams
 
 ## Project Structure
 
